@@ -29,10 +29,41 @@ var app = express();
 app.set('views', path.join(__dirname, 'views'));
 app.set('view engine', 'jade');
 
+//middleware applied in the order they appear
 app.use(logger('dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
+//don't need authentication for ^
+
+//so authentication starts here to serve static files-- creating custom middleware function named auth
+function auth(req, res, next) { //all express middleware functions require req and res objects as params, next is optional
+  console.log(req.headers)
+  const authHeader = req.headers.authorization
+  if (!authHeader) { //if null, then didn't get any authentication info (no username/pw)
+    const err = new Error('You are not authenticated!')
+    res.setHeader('WWW-Authenticate', 'Basic') //lets client know that server is requesting auth and auth method being requested is Basic
+    err.status = 401 //error code for when auth info not provided
+    return next(err) //pass err message to express
+  }
+
+  //sends error message back and requests clients credentials
+  //if there is an auth header then decode username and pw info, then parse into array ['admin', 'password']
+  const auth = Buffer.from(authHeader.split(' ')[1], 'base64').toString().split(':') //Buffer: global in NodeJS (don't need to be required)
+  const user = auth[0]
+  const pass = auth[1]
+  //basic validation
+  if (user === 'admin' && pass === 'password') { //if true then pass to next middleware function
+    return next() //authorized
+  } else {
+    const err = new Error('You are not authenticated!')
+    res.setHeader('WWW-Authenticate', 'Basic')
+    err.status = 401
+    return next(err)
+  }
+}
+app.use(auth)
+
 app.use(express.static(path.join(__dirname, 'public')));
 
 app.use('/', indexRouter);
