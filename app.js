@@ -33,33 +33,46 @@ app.set('view engine', 'jade');
 app.use(logger('dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
-app.use(cookieParser());
+app.use(cookieParser('12345-67890-09876-54321')); //arg: secret key
 //don't need authentication for ^
 
 //so authentication starts here to serve static files-- creating custom middleware function named auth
 function auth(req, res, next) { //all express middleware functions require req and res objects as params, next is optional
-  console.log(req.headers)
-  const authHeader = req.headers.authorization
-  if (!authHeader) { //if null, then didn't get any authentication info (no username/pw)
-    const err = new Error('You are not authenticated!')
-    res.setHeader('WWW-Authenticate', 'Basic') //lets client know that server is requesting auth and auth method being requested is Basic
-    err.status = 401 //error code for when auth info not provided
-    return next(err) //pass err message to express
-  }
+  //console.log(req.headers)
+  if (!req.signedCookies.user) { //signedCookies: auto parses cookie from request, if not properly signed then will return false
+    //if no signedCookies.user or false, client hasn't been authenticated
+    const authHeader = req.headers.authorization
+    if (!authHeader) { //if null, then didn't get any authentication info (no username/pw)
+      const err = new Error('You are not authenticated!')
+      res.setHeader('WWW-Authenticate', 'Basic') //lets client know that server is requesting auth and auth method being requested is Basic
+      err.status = 401 //error code for when auth info not provided
+      return next(err) //pass err message to express
+    }
 
-  //sends error message back and requests clients credentials
-  //if there is an auth header then decode username and pw info, then parse into array ['admin', 'password']
-  const auth = Buffer.from(authHeader.split(' ')[1], 'base64').toString().split(':') //Buffer: global in NodeJS (don't need to be required)
-  const user = auth[0]
-  const pass = auth[1]
-  //basic validation
-  if (user === 'admin' && pass === 'password') { //if true then pass to next middleware function
-    return next() //authorized
-  } else {
-    const err = new Error('You are not authenticated!')
-    res.setHeader('WWW-Authenticate', 'Basic')
-    err.status = 401
-    return next(err)
+    //sends error message back and requests clients credentials
+    //if there is an auth header then decode username and pw info, then parse into array ['admin', 'password']
+    const auth = Buffer.from(authHeader.split(' ')[1], 'base64').toString().split(':') //Buffer: global in NodeJS (don't need to be required)
+    const user = auth[0]
+    const pass = auth[1]
+    //basic validation
+    if (user === 'admin' && pass === 'password') { //if true then pass to next middleware function
+      //set up cookie
+      res.cookie('user', 'admin', {signed: true}) //creates new cookie passing in name of cookie (user), value of name property (admin), and optional object containing config values (let express know to use cookie parser to create signed cookie)
+      return next() //authorized
+    } else {
+      const err = new Error('You are not authenticated!')
+      res.setHeader('WWW-Authenticate', 'Basic')
+      err.status = 401
+      return next(err)
+    }
+  } else { //if there is a signed cookie
+    if (req.signedCookies.user === 'admin') {
+      return next()
+    } else {
+      const err = new Error('You are not authenticated!')
+      err.status = 401
+      return next(err)
+    }
   }
 }
 app.use(auth)
