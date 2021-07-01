@@ -45,6 +45,10 @@ app.use(session({
 }))
 //don't need authentication for ^
 
+//moved to above auth function to allow clients to create new accounts and route logged out/unauthenticated users back to index
+app.use('/', indexRouter);
+app.use('/users', usersRouter);
+
 //so authentication starts here to serve static files-- creating custom middleware function named auth
 function auth(req, res, next) { //all express middleware functions require req and res objects as params, next is optional
   //console.log(req.headers)
@@ -52,35 +56,34 @@ function auth(req, res, next) { //all express middleware functions require req a
   //if (!req.signedCookies.user) { //signedCookies: auto parses cookie from request, if not properly signed then will return false -------replaced with Sessions
     //if no signedCookies.user or false, client hasn't been authenticated
   
-    if (!req.session.user) {
-    const authHeader = req.headers.authorization
-    if (!authHeader) { //if null, then didn't get any authentication info (no username/pw)
-      const err = new Error('You are not authenticated!')
-      res.setHeader('WWW-Authenticate', 'Basic') //lets client know that server is requesting auth and auth method being requested is Basic
-      err.status = 401 //error code for when auth info not provided
-      return next(err) //pass err message to express
-    }
+  if (!req.session.user) {
+    //const authHeader = req.headers.authorization
+    //if (!authHeader) { //if null, then didn't get any authentication info (no username/pw) -----removed when added user router
+    const err = new Error('You are not authenticated!')
+    //res.setHeader('WWW-Authenticate', 'Basic') //lets client know that server is requesting auth and auth method being requested is Basic ------removed when added user router
+    err.status = 401 //error code for when auth info not provided
+    return next(err) //pass err message to express
 
     //sends error message back and requests clients credentials
     //if there is an auth header then decode username and pw info, then parse into array ['admin', 'password']
-    const auth = Buffer.from(authHeader.split(' ')[1], 'base64').toString().split(':') //Buffer: global in NodeJS (don't need to be required)
-    const user = auth[0]
-    const pass = auth[1]
-    //basic validation
-    if (user === 'admin' && pass === 'password') { //if true then pass to next middleware function
-      //set up cookie
-      //res.cookie('user', 'admin', {signed: true}) //creates new cookie passing in name of cookie (user), value of name property (admin), and optional object containing config values (let express know to use cookie parser to create signed cookie)  -------replaced with Sessions
-      req.session.user = 'admin'
-      return next() //authorized
-    } else {
-      const err = new Error('You are not authenticated!')
-      res.setHeader('WWW-Authenticate', 'Basic')
-      err.status = 401
-      return next(err)
-    }
+    // const auth = Buffer.from(authHeader.split(' ')[1], 'base64').toString().split(':') //Buffer: global in NodeJS (don't need to be required)
+    // const user = auth[0]
+    // const pass = auth[1]
+    // //basic validation
+    // if (user === 'admin' && pass === 'password') { //if true then pass to next middleware function
+    //   //set up cookie
+    //   //res.cookie('user', 'admin', {signed: true}) //creates new cookie passing in name of cookie (user), value of name property (admin), and optional object containing config values (let express know to use cookie parser to create signed cookie)  -------replaced with Sessions
+    //   req.session.user = 'admin'
+    //   return next() //authorized
+    // } else {
+    //   const err = new Error('You are not authenticated!')
+    //   res.setHeader('WWW-Authenticate', 'Basic')
+    //   err.status = 401
+    //   return next(err)
+    // } ------removed when added user router
   } else { //if there is a signed cookie
     //if (req.signedCookies.user === 'admin') { -------replaced with Sessions
-    if (req.session.user === 'admin') {
+    if (req.session.user === 'authenticated') {
       return next()
     } else {
       const err = new Error('You are not authenticated!')
@@ -93,8 +96,8 @@ app.use(auth)
 
 app.use(express.static(path.join(__dirname, 'public')));
 
-app.use('/', indexRouter);
-app.use('/users', usersRouter);
+// app.use('/', indexRouter);
+// app.use('/users', usersRouter);
 app.use('/campsites', campsiteRouter)
 app.use('/partners', partnerRouter)
 app.use('/promotions', promotionRouter)
