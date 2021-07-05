@@ -5,6 +5,8 @@ var cookieParser = require('cookie-parser');
 var logger = require('morgan');
 const session = require('express-session')
 const FileStore = require('session-file-store')(session) //2 params: require function returning another function as its return value and calling the return function with 2nd param (session)
+const passport = require('passport');
+const authenticate = require('./authenticate');
 
 var indexRouter = require('./routes/index');
 var usersRouter = require('./routes/users');
@@ -45,6 +47,8 @@ app.use(session({
 }))
 //don't need authentication for ^
 
+app.use(passport.initialize());
+app.use(passport.session());
 //moved to above auth function to allow clients to create new accounts and route logged out/unauthenticated users back to index
 app.use('/', indexRouter);
 app.use('/users', usersRouter);
@@ -52,11 +56,11 @@ app.use('/users', usersRouter);
 //so authentication starts here to serve static files-- creating custom middleware function named auth
 function auth(req, res, next) { //all express middleware functions require req and res objects as params, next is optional
   //console.log(req.headers)
-  console.log(req.session)
+  console.log(req.user)
   //if (!req.signedCookies.user) { //signedCookies: auto parses cookie from request, if not properly signed then will return false -------replaced with Sessions
     //if no signedCookies.user or false, client hasn't been authenticated
   
-  if (!req.session.user) {
+  if (!req.user) {
     //const authHeader = req.headers.authorization
     //if (!authHeader) { //if null, then didn't get any authentication info (no username/pw) -----removed when added user router
     const err = new Error('You are not authenticated!')
@@ -83,13 +87,14 @@ function auth(req, res, next) { //all express middleware functions require req a
     // } ------removed when added user router
   } else { //if there is a signed cookie
     //if (req.signedCookies.user === 'admin') { -------replaced with Sessions
-    if (req.session.user === 'authenticated') {
-      return next()
-    } else {
-      const err = new Error('You are not authenticated!')
-      err.status = 401
-      return next(err)
-    }
+    // if (req.session.user === 'authenticated') {
+    //   return next()
+    // } else {
+    //   const err = new Error('You are not authenticated!')
+    //   err.status = 401
+    //   return next(err)
+    // }
+    return next()
   }
 }
 app.use(auth)
