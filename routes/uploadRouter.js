@@ -1,6 +1,7 @@
 const express = require('express')
 const authenticate = require('../authenticate')
 const multer = require('multer')
+const cors = require('./cors')
 
 //multer has defaults, but customize
 const storage = multer.diskStorage({ //2 object configs
@@ -15,7 +16,7 @@ const storage = multer.diskStorage({ //2 object configs
 //file filter
 const imageFileFilter = (req, file, cb) => {
     if (!file.originalname.match(/\.(jpg|jpeg|png|gif)$/)) { //regex to check if file extension is not one of these
-        return eb(new Error('You can upload only image files!'), false) //reject file upload
+        return cb(new Error('You can upload only image files!'), false) //reject file upload
     }
     cb(null, true) //no error and accept file upload
 }
@@ -27,20 +28,21 @@ const uploadRouter = express.Router()
 
 //config uploadRouter to handle HTTP requests (only allowing POST)
 uploadRouter.route('/')
-.get(authenticate.verifyUser, authenticate.verifyAdmin, (req, res) => {
+.options(cors.corsWithOptions, (req, res) => res.sendStatus(200))
+.get(cors.cors, authenticate.verifyUser, authenticate.verifyAdmin, (req, res) => {
     res.statusCode = 403
     res.end('GET operation not supported on /imageUpload')
 })
-.post(authenticate.verifyUser, authenticate.verifyAdmin, upload.single('imageFile'), (req, res) => { //upload.single: expecting single file upload with input field name of imageFile, then multer takes over and handles any errors (file has been successfully uploaded)
+.post(cors.corsWithOptions, authenticate.verifyUser, authenticate.verifyAdmin, upload.single('imageFile'), (req, res) => { //upload.single: expecting single file upload with input field name of imageFile, then multer takes over and handles any errors (file has been successfully uploaded)
     res.statusCode = 200
     res.setHeader('Content-Type', 'application/json')
     res.json(req.file) //multer adds object file with file info and send info back to client
 })
-.put(authenticate.verifyUser, authenticate.verifyAdmin, (req, res) => {
+.put(cors.corsWithOptions, authenticate.verifyUser, authenticate.verifyAdmin, (req, res) => {
     res.statusCode = 403
     res.end('PUT operation not supported on /imageUpload')
 })
-.delete(authenticate.verifyUser, authenticate.verifyAdmin, (req, res) => {
+.delete(cors.corsWithOptions, authenticate.verifyUser, authenticate.verifyAdmin, (req, res) => {
     res.statusCode = 403
     res.end('DELETE operation not supported on /imageUpload')
 })
